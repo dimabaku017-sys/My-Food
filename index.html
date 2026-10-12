@@ -263,11 +263,12 @@ const PRODUCTS = [
   { id: "dumplings",      name: "Ветчина",              file: "Ветчина.jpg"}
 ];
 
-const PHOTO_DIR = "products/";   // если фото в корне — оставьте ""
+// ✅ ФОТО ЛЕЖАТ РЯДОМ С HTML — БЕЗ ПАПКИ
+const PHOTO_DIR = "";
 
 // ===== СОСТОЯНИЕ =====
 let statuses = {};
-let imageCache = {};   // file -> HTMLImageElement (загружается через fetch, может не работать при file://)
+let imageCache = {};   // file -> HTMLImageElement
 
 // ===== ЦВЕТА ДЛЯ КАРТОЧЕК В PNG =====
 const CARD_COLORS = [
@@ -317,7 +318,6 @@ function toast(msg) {
 }
 
 // ===== ЗАГРУЗКА ФОТО (для PNG) =====
-// Пытаемся через fetch + FileReader → base64 → Image. Работает только через http(s), не при file://
 async function tryPreloadImages() {
   let ok = 0, fail = 0;
   await Promise.all(PRODUCTS.map(async (p) => {
@@ -441,14 +441,12 @@ async function generateListImage(items, type) {
   canvas.height = H;
   const ctx = canvas.getContext("2d");
 
-  // Фон
   const bg = ctx.createLinearGradient(0, 0, W, H);
   bg.addColorStop(0, "#0f1115");
   bg.addColorStop(1, "#1a1d24");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Заголовок
   ctx.fillStyle = "#fff";
   ctx.font = "900 44px Manrope, sans-serif";
   ctx.textBaseline = "top";
@@ -481,12 +479,10 @@ async function generateListImage(items, type) {
     const color = st === "yes" ? "#22c55e" :
                   st === "half" ? "#f59e0b" : "#ef4444";
 
-    // Фон карточки
     ctx.fillStyle = "#1c2028";
     roundRect(ctx, x, y, CELL_W, CELL_H, 20);
     ctx.fill();
 
-    // Рамка статуса
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
     roundRect(ctx, x + 1.5, y + 1.5, CELL_W - 3, CELL_H - 3, 20);
@@ -498,14 +494,12 @@ async function generateListImage(items, type) {
 
     const img = imageCache[p.file];
     if (img) {
-      // Если фото загружено через fetch — рисуем его
       ctx.save();
       roundRect(ctx, photoX, photoY, photoSize, photoSize, 12);
       ctx.clip();
       drawImageCover(ctx, img, photoX, photoY, photoSize, photoSize);
       ctx.restore();
     } else {
-      // Иначе — красивая цветная плашка с эмодзи и первой буквой
       const baseColor = CARD_COLORS[i % CARD_COLORS.length];
       const grad = ctx.createLinearGradient(photoX, photoY, photoX + photoSize, photoY + photoSize);
       grad.addColorStop(0, baseColor);
@@ -516,7 +510,6 @@ async function generateListImage(items, type) {
       ctx.fillStyle = grad;
       ctx.fillRect(photoX, photoY, photoSize, photoSize);
 
-      // Эмодзи 🍽️ или первая буква
       ctx.fillStyle = "rgba(255,255,255,.95)";
       ctx.font = "900 110px Manrope, sans-serif";
       ctx.textAlign = "center";
@@ -528,7 +521,6 @@ async function generateListImage(items, type) {
       ctx.textBaseline = "top";
     }
 
-    // Название
     ctx.fillStyle = "#fff";
     ctx.font = "800 22px Manrope, sans-serif";
     ctx.textAlign = "center";
@@ -536,7 +528,6 @@ async function generateListImage(items, type) {
     const title = truncate(ctx, p.name, CELL_W - 24);
     ctx.fillText(title, x + CELL_W / 2, y + CELL_H - 70);
 
-    // Бейдж
     const label = st === "yes" ? "ЕСТЬ" :
                   st === "half" ? "ПОЛОВИНА" : "НЕТ";
     ctx.font = "900 16px Manrope, sans-serif";
@@ -601,9 +592,8 @@ function shadeColor(hex, percent) {
   const saved = await dbGet("statuses");
   if (saved && typeof saved === "object") statuses = saved;
 
-  render();  // сразу показываем фото через прямой <img>
+  render();
 
-  // Пытаемся дополнительно закэшировать фото для PNG (работает только через http)
   try {
     const r = await tryPreloadImages();
     if (r.ok > 0) {
