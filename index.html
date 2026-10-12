@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Мой холодильник</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --card: #1c2028;
+  --card-hover: #23272f;
+  --text: #fff;
+  --text-2: #a0a6b3;
+  --text-3: #6a7080;
+  --border: #262b33;
+  --green: #22c55e;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --accent: #FFDD2D;
+  --ease: cubic-bezier(.4,0,.2,1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: 'Manrope', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+button:focus { outline: none; }
+
+.header {
+  position: sticky; top: 0; z-index: 10;
+  background: linear-gradient(180deg, var(--bg) 70%, transparent);
+  padding: 20px 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(10px);
+}
+.header h1 { font-size: 24px; font-weight: 900; letter-spacing: -.5px; flex: 1; }
+.header-logo {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, #60a5fa, #3b82f6);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+}
+.stats { font-size: 12px; color: var(--text-2); font-weight: 600; white-space: nowrap; }
+.stats span { font-weight: 800; }
+
+.save-btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #000;
+  font-weight: 800;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: .2s var(--ease);
+  white-space: nowrap;
+}
+.save-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(255,221,45,.35); }
+.save-btn svg { width: 16px; height: 16px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  padding: 8px 24px;
+}
+@media (max-width: 600px) {
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 8px 12px; }
+  .header { padding: 14px 12px 12px; }
+  .header h1 { font-size: 20px; }
+  .stats { display: none; }
+}
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px;
+  transition: .2s var(--ease);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 2px solid transparent;
+}
+.card:hover { background: var(--card-hover); }
+.card.status-yes { border-color: rgba(34,197,94,.35); }
+.card.status-half { border-color: rgba(245,158,11,.35); }
+.card.status-no { border-color: rgba(239,68,68,.35); }
+
+.card-photo {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background: #0a0a0e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.card-photo img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-photo .fallback {
+  font-size: 48px;
+  color: var(--text-3);
+}
+.card-title {
+  font-weight: 800;
+  font-size: 14px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+.btn-status {
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-weight: 700;
+  font-size: 11px;
+  transition: .15s var(--ease);
+  border: 2px solid transparent;
+  text-align: center;
+  line-height: 1.2;
+}
+.btn-status:hover { background: #23272f; color: var(--text); }
+.btn-status.active-yes { background: rgba(34,197,94,.15); border-color: var(--green); color: var(--green); }
+.btn-status.active-half { background: rgba(245,158,11,.15); border-color: var(--orange); color: var(--orange); }
+.btn-status.active-no { background: rgba(239,68,68,.15); border-color: var(--red); color: var(--red); }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: var(--accent);
+  color: #000;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13px;
+  z-index: 1100;
+  transition: .3s var(--ease);
+  box-shadow: 0 12px 40px rgba(255,221,45,.4);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 16px;
+}
+.modal-bg.active { display: flex; }
+.modal {
+  background: var(--panel);
+  border-radius: 20px;
+  padding: 28px;
+  max-width: 420px;
+  width: 100%;
+  border: 1px solid var(--border);
+  box-shadow: 0 32px 80px rgba(0,0,0,.7);
+}
+.modal h3 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: var(--text-2); margin-bottom: 20px; }
+.modal-btn {
+  width: 100%; padding: 14px; border-radius: 14px;
+  font-weight: 700; font-size: 14px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 10px;
+  transition: .15s var(--ease); text-align: left;
+}
+.modal-btn.primary { background: var(--accent); color: #000; }
+.modal-btn.primary:hover { transform: translateY(-1px); }
+.modal-btn.secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+.modal-btn.secondary:hover { background: var(--card-hover); }
+.modal-btn-icon { font-size: 20px; }
+.modal-btn-cancel {
+  width: 100%; padding: 12px; border-radius: 12px;
+  font-weight: 600; font-size: 13px;
+  color: var(--text-2); margin-top: 8px;
+}
+.modal-btn-cancel:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo">🧊</div>
+  <h1>Мой холодильник</h1>
+  <div class="stats" id="stats">—</div>
+  <button class="save-btn" onclick="openSaveModal()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+    Сохранить
+  </button>
+</header>
+
+<main class="grid" id="grid"></main>
+
+<div class="modal-bg" id="saveModalBg">
+  <div class="modal">
+    <h3>Что сохранить?</h3>
+    <div class="modal-sub">Скачается картинка со списком продуктов</div>
+
+    <button class="modal-btn primary" onclick="downloadList('have')">
+      <span class="modal-btn-icon">✅</span>
+      <span>Что есть<br><small style="font-weight:600;font-size:12px;opacity:.7;">Продукты со статусом «Есть»</small></span>
+    </button>
+
+    <button class="modal-btn secondary" onclick="downloadList('out')">
+      <span class="modal-btn-icon">🛒</span>
+      <span>Что закончилось<br><small style="font-weight:600;font-size:12px;opacity:.7;">«Половина» и «Нет» — список покупок</small></span>
+    </button>
+
+    <button class="modal-btn-cancel" onclick="closeSaveModal()">Отмена</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== СПИСОК =====
+const PRODUCTS = [
+  { id: "oil_sun",   name: "Масло подсолнечное", file: "Масло подсолнечное.jpg" },
+  { id: "sugar",     name: "Сахар",               file: "Сахар.jpg" },
+  { id: "mayo",      name: "Майонез",             file: "Майонез.jpg" },
+  { id: "ketchup",   name: "Кетчуп",              file: "Кетчуп.jpg" },
+  { id: "tea_green", name: "Чай зелёный",         file: "Чай зеленый.jpg" },
+  { id: "tea_black", name: "Чай чёрный",          file: "Чай черный.jpg" },
+  { id: "baton",     name: "Батон",               file: "Батон.jpg" },
+  { id: "bread",     name: "Хлеб",                file: "Хлеб.jpg" },
+  { id: "bread_h",   name: "Хлеб Harrys",         file: "Хлеб Harrys.jpg" },
+  { id: "butter",    name: "Масло сливочное",     file: "Масло сливочное.jpg" },
+  { id: "kefir",     name: "Кефир",               file: "Кефир.jpg" },
+  { id: "sausage",   name: "Колбаса сырокопчёная",    file: "Колбаса.jpg" },
+  { id: "cheese",    name: "Сыр",                 file: "Сыр.jpg" },
+  { id: "milk",      name: "Молоко",              file: "Молоко.jpg" },
+  { id: "cookies",   name: "Печенье",             file: "Печенье.jpg" },
+  { id: "salt",      name: "Соль",              file: "Соль.jpg" },
+  { id: "sausages",      name: "Сосиски",              file: "Сосиски.jpg" },
+  { id: "dumplings",      name: "Пельмени",              file: "Пельмени.jpg" },
+  { id: "Boiled sausage",      name: "Колбаса варёная",              file: "Колбаса Варёная.jpg" },
+  { id: "dumplings",      name: "Ветчина",              file: "Ветчина.jpg"}
+];
+
+const PHOTO_DIR = "products/";   // если фото в корне — оставьте ""
+
+// ===== СОСТОЯНИЕ =====
+let statuses = {};
+let imageCache = {};   // file -> HTMLImageElement (загружается через fetch, может не работать при file://)
+
+// ===== ЦВЕТА ДЛЯ КАРТОЧЕК В PNG =====
+const CARD_COLORS = [
+  "#7c3aed", "#ec4899", "#f59e0b", "#10b981",
+  "#3b82f6", "#ef4444", "#f97316", "#06b6d4",
+  "#8b5cf6", "#14b8a6", "#eab308", "#a855f7",
+  "#f43f5e", "#0ea5e9", "#84cc16"
+];
+
+// ===== БД =====
+let db;
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("fridge", 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains("state")) d.createObjectStore("state");
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = () => reject();
+  });
+}
+const dbGet = (k) => new Promise(res => {
+  try {
+    const t = db.transaction("state", "readonly");
+    const q = t.objectStore("state").get(k);
+    q.onsuccess = () => res(q.result);
+    q.onerror = () => res(undefined);
+  } catch (_) { res(undefined); }
+});
+const dbSet = (k, v) => new Promise(res => {
+  try {
+    const t = db.transaction("state", "readwrite");
+    t.objectStore("state").put(v, k);
+    t.oncomplete = () => res();
+    t.onerror = () => res();
+  } catch (_) { res(); }
+});
+
+// ===== УТИЛ =====
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+// ===== ЗАГРУЗКА ФОТО (для PNG) =====
+// Пытаемся через fetch + FileReader → base64 → Image. Работает только через http(s), не при file://
+async function tryPreloadImages() {
+  let ok = 0, fail = 0;
+  await Promise.all(PRODUCTS.map(async (p) => {
+    const url = PHOTO_DIR + encodeURIComponent(p.file);
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const blob = await resp.blob();
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+      const img = await new Promise(res => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = () => res(null);
+        i.src = dataUrl;
+      });
+      if (img) { imageCache[p.file] = img; ok++; }
+      else fail++;
+    } catch (e) {
+      fail++;
+    }
+  }));
+  return { ok, fail };
+}
+
+// ===== РЕНДЕР КАРТОЧЕК =====
+function render() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = PRODUCTS.map(p => {
+    const st = statuses[p.id] || "";
+    const cls = st === "yes" ? "status-yes" :
+                st === "half" ? "status-half" :
+                st === "no" ? "status-no" : "";
+    const imgSrc = PHOTO_DIR + encodeURIComponent(p.file);
+    return `
+      <div class="card ${cls}">
+        <div class="card-photo">
+          <img src="${imgSrc}" alt="${p.name}"
+               onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=&quot;fallback&quot;>🍽️</div>';">
+        </div>
+        <div class="card-title">${p.name}</div>
+        <div class="card-actions">
+          <button class="btn-status ${st==='yes' ? 'active-yes' : ''}" onclick="setStatus('${p.id}', 'yes')">Есть</button>
+          <button class="btn-status ${st==='half' ? 'active-half' : ''}" onclick="setStatus('${p.id}', 'half')">Пол.</button>
+          <button class="btn-status ${st==='no' ? 'active-no' : ''}" onclick="setStatus('${p.id}', 'no')">Нет</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+  updateStats();
+}
+
+function setStatus(id, st) {
+  statuses[id] = st;
+  dbSet("statuses", statuses);
+  render();
+}
+
+function updateStats() {
+  const yes = Object.values(statuses).filter(s => s === "yes").length;
+  const half = Object.values(statuses).filter(s => s === "half").length;
+  const no = Object.values(statuses).filter(s => s === "no").length;
+  document.getElementById("stats").innerHTML =
+    `Есть: <span style="color:#22c55e">${yes}</span> · ` +
+    `Половина: <span style="color:#f59e0b">${half}</span> · ` +
+    `Нет: <span style="color:#ef4444">${no}</span>`;
+}
+
+// ===== МОДАЛКА =====
+function openSaveModal() { document.getElementById("saveModalBg").classList.add("active"); }
+function closeSaveModal() { document.getElementById("saveModalBg").classList.remove("active"); }
+document.getElementById("saveModalBg").addEventListener("click", e => {
+  if (e.target.id === "saveModalBg") closeSaveModal();
+});
+
+// ===== СОХРАНЕНИЕ PNG =====
+async function downloadList(type) {
+  closeSaveModal();
+  const items = PRODUCTS.filter(p => {
+    const st = statuses[p.id];
+    if (type === "have") return st === "yes";
+    if (type === "out") return st === "half" || st === "no";
+    return false;
+  });
+
+  if (!items.length) {
+    toast(type === "have" ? "Нет продуктов со статусом «Есть»" : "Нет «половинных» и отсутствующих");
+    return;
+  }
+
+  toast("Готовим картинку...");
+  const dataUrl = await generateListImage(items, type);
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = (type === "have" ? "Что_есть_" : "Что_купить_") +
+               new Date().toISOString().slice(0, 10) + ".png";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast("Картинка сохранена");
+}
+
+async function generateListImage(items, type) {
+  const COLS = 3;
+  const CELL_W = 300;
+  const CELL_H = 340;
+  const GAP = 20;
+  const PAD = 40;
+  const HEADER_H = 140;
+
+  const rows = Math.ceil(items.length / COLS);
+  const W = PAD * 2 + COLS * CELL_W + (COLS - 1) * GAP;
+  const H = PAD + HEADER_H + rows * CELL_H + (rows - 1) * GAP + PAD;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  // Фон
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#0f1115");
+  bg.addColorStop(1, "#1a1d24");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Заголовок
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 44px Manrope, sans-serif";
+  ctx.textBaseline = "top";
+  ctx.fillText(
+    type === "have" ? "✅ Что есть в холодильнике" : "🛒 Что нужно купить",
+    PAD, PAD
+  );
+  ctx.fillStyle = "#a0a6b3";
+  ctx.font = "600 18px Manrope, sans-serif";
+  ctx.fillText(
+    new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" }),
+    PAD, PAD + 60
+  );
+
+  ctx.strokeStyle = "rgba(255,255,255,.08)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD, PAD + HEADER_H - 20);
+  ctx.lineTo(W - PAD, PAD + HEADER_H - 20);
+  ctx.stroke();
+
+  for (let i = 0; i < items.length; i++) {
+    const p = items[i];
+    const row = Math.floor(i / COLS);
+    const col = i % COLS;
+    const x = PAD + col * (CELL_W + GAP);
+    const y = PAD + HEADER_H + row * (CELL_H + GAP);
+
+    const st = statuses[p.id];
+    const color = st === "yes" ? "#22c55e" :
+                  st === "half" ? "#f59e0b" : "#ef4444";
+
+    // Фон карточки
+    ctx.fillStyle = "#1c2028";
+    roundRect(ctx, x, y, CELL_W, CELL_H, 20);
+    ctx.fill();
+
+    // Рамка статуса
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    roundRect(ctx, x + 1.5, y + 1.5, CELL_W - 3, CELL_H - 3, 20);
+    ctx.stroke();
+
+    const photoX = x + 16;
+    const photoY = y + 16;
+    const photoSize = CELL_W - 32;
+
+    const img = imageCache[p.file];
+    if (img) {
+      // Если фото загружено через fetch — рисуем его
+      ctx.save();
+      roundRect(ctx, photoX, photoY, photoSize, photoSize, 12);
+      ctx.clip();
+      drawImageCover(ctx, img, photoX, photoY, photoSize, photoSize);
+      ctx.restore();
+    } else {
+      // Иначе — красивая цветная плашка с эмодзи и первой буквой
+      const baseColor = CARD_COLORS[i % CARD_COLORS.length];
+      const grad = ctx.createLinearGradient(photoX, photoY, photoX + photoSize, photoY + photoSize);
+      grad.addColorStop(0, baseColor);
+      grad.addColorStop(1, shadeColor(baseColor, -30));
+      ctx.save();
+      roundRect(ctx, photoX, photoY, photoSize, photoSize, 12);
+      ctx.clip();
+      ctx.fillStyle = grad;
+      ctx.fillRect(photoX, photoY, photoSize, photoSize);
+
+      // Эмодзи 🍽️ или первая буква
+      ctx.fillStyle = "rgba(255,255,255,.95)";
+      ctx.font = "900 110px Manrope, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(p.name.charAt(0).toUpperCase(), photoX + photoSize / 2, photoY + photoSize / 2);
+      ctx.restore();
+
+      ctx.textAlign = "start";
+      ctx.textBaseline = "top";
+    }
+
+    // Название
+    ctx.fillStyle = "#fff";
+    ctx.font = "800 22px Manrope, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    const title = truncate(ctx, p.name, CELL_W - 24);
+    ctx.fillText(title, x + CELL_W / 2, y + CELL_H - 70);
+
+    // Бейдж
+    const label = st === "yes" ? "ЕСТЬ" :
+                  st === "half" ? "ПОЛОВИНА" : "НЕТ";
+    ctx.font = "900 16px Manrope, sans-serif";
+    const bw = ctx.measureText(label).width + 32;
+    const bh = 32;
+    const bx = x + (CELL_W - bw) / 2;
+    const by = y + CELL_H - 48;
+    ctx.fillStyle = color;
+    roundRect(ctx, bx, by, bw, bh, 16);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, bx + bw / 2, by + bh / 2 + 1);
+    ctx.textBaseline = "top";
+    ctx.textAlign = "start";
+  }
+
+  return canvas.toDataURL("image/png");
+}
+
+// ===== CANVAS-УТИЛИТЫ =====
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawImageCover(ctx, img, x, y, w, h) {
+  const ir = img.width / img.height;
+  const r = w / h;
+  let sx, sy, sw, sh;
+  if (ir > r) { sh = img.height; sw = sh * r; sx = (img.width - sw) / 2; sy = 0; }
+  else { sw = img.width; sh = sw / r; sx = 0; sy = (img.height - sh) / 2; }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+function truncate(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 0 && ctx.measureText(t + "…").width > maxWidth) t = t.slice(0, -1);
+  return t + "…";
+}
+
+function shadeColor(hex, percent) {
+  const num = parseInt(hex.replace("#",""), 16);
+  let r = (num >> 16) + percent;
+  let g = ((num >> 8) & 0x00FF) + percent;
+  let b = (num & 0x0000FF) + percent;
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+// ===== СТАРТ =====
+(async function init() {
+  try { await openDB(); } catch (_) {}
+  const saved = await dbGet("statuses");
+  if (saved && typeof saved === "object") statuses = saved;
+
+  render();  // сразу показываем фото через прямой <img>
+
+  // Пытаемся дополнительно закэшировать фото для PNG (работает только через http)
+  try {
+    const r = await tryPreloadImages();
+    if (r.ok > 0) {
+      console.log("Фото для PNG: загружено", r.ok, "из", PRODUCTS.length);
+    } else {
+      console.warn("Фото для PNG недоступны (file://). В PNG будут цветные карточки.");
+    }
+  } catch (e) { console.warn(e); }
+})();
+</script>
+</body>
+</html>
