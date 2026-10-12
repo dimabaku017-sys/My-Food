@@ -91,6 +91,8 @@ button:focus { outline: none; }
   flex-direction: column;
   gap: 10px;
   border: 2px solid transparent;
+  content-visibility: auto;
+  contain-intrinsic-size: 260px;
 }
 .card:hover { background: var(--card-hover); }
 .card.status-yes { border-color: rgba(34,197,94,.35); }
@@ -127,6 +129,7 @@ button:focus { outline: none; }
   z-index: 1;
   opacity: 0;
   transition: opacity .25s var(--ease);
+  image-rendering: -webkit-optimize-contrast;
 }
 .card-photo img.loaded { opacity: 1; }
 .card-photo .fallback {
@@ -278,7 +281,9 @@ const PRODUCTS = [
   { id: "sausages",      name: "Сосиски",              file: "Сосиски.jpg" },
   { id: "dumplings",      name: "Пельмени",              file: "Пельмени.jpg" },
   { id: "boiled_sausage",      name: "Колбаса варёная",              file: "Колбаса Варёная.jpg" },
-  { id: "ham",      name: "Ветчина",              file: "Ветчина.jpg"}
+  { id: "ham",      name: "Ветчина",              file: "Ветчина.jpg"},
+  { id: "Cucumbers",      name: "Огурцы",    file: "Огурцы.jpg"},
+  { id: "Tomatoes",      name: "Помидоры",              file: "Помидоры.jpg"}
 ];
 
 const PHOTO_DIR = "";
@@ -338,6 +343,7 @@ function preloadPhotos() {
   PRODUCTS.forEach(p => {
     const img = new Image();
     img.decoding = "async";
+    img.loading = "eager";
     img.src = PHOTO_DIR + encodeURIComponent(p.file);
   });
 }
@@ -386,6 +392,7 @@ function render() {
           <img src="${imgSrc}" alt="${p.name}"
                loading="lazy"
                decoding="async"
+               fetchpriority="low"
                onload="this.classList.add('loaded')"
                onerror="this.style.display='none'; this.parentNode.querySelector('img').remove(); this.parentNode.insertAdjacentHTML('beforeend','<div class=&quot;fallback&quot;>🍽️</div>');">
         </div>
@@ -409,6 +416,7 @@ function render() {
 
 // ===== УСТАНОВКА СТАТУСА (с сбросом при повторном нажатии) =====
 function setStatus(id, st) {
+  // Если нажали на уже активную кнопку — сбрасываем в нейтральное состояние
   if (statuses[id] === st) {
     delete statuses[id];
   } else {
@@ -626,9 +634,13 @@ function shadeColor(hex, percent) {
 
 // ===== СТАРТ =====
 (async function init() {
+  // 1. Мгновенно рендерим карточки со скелетоном
   render();
+
+  // 2. Параллельно стартуем загрузку фото
   preloadPhotos();
 
+  // 3. Открываем БД и подгружаем сохранённые статусы
   try { await openDB(); } catch (_) {}
   const saved = await dbGet("statuses");
   if (saved && typeof saved === "object") {
@@ -636,6 +648,7 @@ function shadeColor(hex, percent) {
     render();
   }
 
+  // 4. Фоновый кэш для PNG (работает только через http)
   try {
     const r = await tryPreloadImages();
     if (r.ok > 0) {
