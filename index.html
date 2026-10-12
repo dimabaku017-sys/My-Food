@@ -91,6 +91,8 @@ button:focus { outline: none; }
   flex-direction: column;
   gap: 10px;
   border: 2px solid transparent;
+  content-visibility: auto;
+  contain-intrinsic-size: 260px;
 }
 .card:hover { background: var(--card-hover); }
 .card.status-yes { border-color: rgba(34,197,94,.35); }
@@ -108,14 +110,33 @@ button:focus { outline: none; }
   overflow: hidden;
   position: relative;
 }
+.card-photo::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(110deg, #1a1d24 8%, #23272f 18%, #1a1d24 33%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
 .card-photo img {
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity .25s var(--ease);
+  image-rendering: -webkit-optimize-contrast;
 }
+.card-photo img.loaded { opacity: 1; }
 .card-photo .fallback {
   font-size: 48px;
   color: var(--text-3);
+  position: relative;
+  z-index: 1;
 }
 .card-title {
   font-weight: 800;
@@ -259,18 +280,16 @@ const PRODUCTS = [
   { id: "salt",      name: "Соль",              file: "Соль.jpg" },
   { id: "sausages",      name: "Сосиски",              file: "Сосиски.jpg" },
   { id: "dumplings",      name: "Пельмени",              file: "Пельмени.jpg" },
-  { id: "Boiled sausage",      name: "Колбаса варёная",              file: "Колбаса Варёная.jpg" },
-  { id: "dumplings",      name: "Ветчина",              file: "Ветчина.jpg"}
+  { id: "boiled_sausage",      name: "Колбаса варёная",              file: "Колбаса Варёная.jpg" },
+  { id: "ham",      name: "Ветчина",              file: "Ветчина.jpg"}
 ];
 
-// ✅ ФОТО ЛЕЖАТ РЯДОМ С HTML — БЕЗ ПАПКИ
 const PHOTO_DIR = "";
 
 // ===== СОСТОЯНИЕ =====
 let statuses = {};
-let imageCache = {};   // file -> HTMLImageElement
+let imageCache = {};
 
-// ===== ЦВЕТА ДЛЯ КАРТОЧЕК В PNG =====
 const CARD_COLORS = [
   "#7c3aed", "#ec4899", "#f59e0b", "#10b981",
   "#3b82f6", "#ef4444", "#f97316", "#06b6d4",
@@ -317,7 +336,16 @@ function toast(msg) {
   el._t = setTimeout(() => el.classList.remove("show"), 2200);
 }
 
-// ===== ЗАГРУЗКА ФОТО (для PNG) =====
+// ===== ПРЕДЗАГРУЗКА ФОТО =====
+function preloadPhotos() {
+  PRODUCTS.forEach(p => {
+    const img = new Image();
+    img.decoding = "async";
+    img.loading = "eager";
+    img.src = PHOTO_DIR + encodeURIComponent(p.file);
+  });
+}
+
 async function tryPreloadImages() {
   let ok = 0, fail = 0;
   await Promise.all(PRODUCTS.map(async (p) => {
@@ -360,13 +388,23 @@ function render() {
       <div class="card ${cls}">
         <div class="card-photo">
           <img src="${imgSrc}" alt="${p.name}"
-               onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=&quot;fallback&quot;>🍽️</div>';">
+               loading="lazy"
+               decoding="async"
+               fetchpriority="low"
+               onload="this.classList.add('loaded')"
+               onerror="this.style.display='none'; this.parentNode.querySelector('img').remove(); this.parentNode.insertAdjacentHTML('beforeend','<div class=&quot;fallback&quot;>🍽️</div>');">
         </div>
         <div class="card-title">${p.name}</div>
         <div class="card-actions">
-          <button class="btn-status ${st==='yes' ? 'active-yes' : ''}" onclick="setStatus('${p.id}', 'yes')">Есть</button>
-          <button class="btn-status ${st==='half' ? 'active-half' : ''}" onclick="setStatus('${p.id}', 'half')">Пол.</button>
-          <button class="btn-status ${st==='no' ? 'active-no' : ''}" onclick="setStatus('${p.id}', 'no')">Нет</button>
+          <button class="btn-status ${st==='yes' ? 'active-yes' : ''}"
+                  title="${st==='yes' ? 'Нажмите ещё раз, чтобы сбросить' : 'Есть'}"
+                  onclick="setStatus('${p.id}', 'yes')">Есть</button>
+          <button class="btn-status ${st==='half' ? 'active-half' : ''}"
+                  title="${st==='half' ? 'Нажмите ещё раз, чтобы сбросить' : 'Половина'}"
+                  onclick="setStatus('${p.id}', 'half')">Пол.</button>
+          <button class="btn-status ${st==='no' ? 'active-no' : ''}"
+                  title="${st==='no' ? 'Нажмите ещё раз, чтобы сбросить' : 'Нет'}"
+                  onclick="setStatus('${p.id}', 'no')">Нет</button>
         </div>
       </div>
     `;
@@ -374,8 +412,14 @@ function render() {
   updateStats();
 }
 
+// ===== УСТАНОВКА СТАТУСА (с сбросом при повторном нажатии) =====
 function setStatus(id, st) {
-  statuses[id] = st;
+  // Если нажали на уже активную кнопку — сбрасываем в нейтральное состояние
+  if (statuses[id] === st) {
+    delete statuses[id];
+  } else {
+    statuses[id] = st;
+  }
   dbSet("statuses", statuses);
   render();
 }
@@ -588,12 +632,21 @@ function shadeColor(hex, percent) {
 
 // ===== СТАРТ =====
 (async function init() {
-  try { await openDB(); } catch (_) {}
-  const saved = await dbGet("statuses");
-  if (saved && typeof saved === "object") statuses = saved;
-
+  // 1. Мгновенно рендерим карточки со скелетоном
   render();
 
+  // 2. Параллельно стартуем загрузку фото
+  preloadPhotos();
+
+  // 3. Открываем БД и подгружаем сохранённые статусы
+  try { await openDB(); } catch (_) {}
+  const saved = await dbGet("statuses");
+  if (saved && typeof saved === "object") {
+    statuses = saved;
+    render();
+  }
+
+  // 4. Фоновый кэш для PNG (работает только через http)
   try {
     const r = await tryPreloadImages();
     if (r.ok > 0) {
